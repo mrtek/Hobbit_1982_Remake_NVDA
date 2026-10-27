@@ -1,0 +1,45 @@
+# ========================================================
+# Godot 4+ Git Ignore
+# ========================================================
+
+# Godot import cache and temporary engine files
+.godot/
+.godot-mcp/
+.agents/
+addons/
+
+# Exported builds and archives
+build/
+Build/
+*.exe
+!native/**/*.exe
+nvda_*.exe
+*.pck
+*.zip
+*.apk
+*.aab
+*.dmg
+*.iso
+*.pdb
+*.exp
+
+# OS temporary files
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.tmp
+*.bak
+*~
+
+# IDE and Editor configurations
+.vscode/
+.idea/
+
+# Runtime user data and test saves
+user/
+*.save
+savegame.json
+settings.json
+
+# Internal developer logs
+WORK_LOG.md
