@@ -136,6 +136,13 @@ var _event_log_history: Array[String] = []
 var _event_history_browse_index: int = -1
 var _pending_speech_lines: Array[String] = []
 var _suppress_focus_narration: bool = false
+
+# Доступность выпадающего списка быстрых команд (NVDA)
+var _dropdown_popup_open: bool = false
+var _dropdown_popup_first_item_pending: bool = false
+var _dropdown_last_spoken_index: int = -1
+var _dropdown_pending_activation: int = -1
+var _last_dropdown_announcement: String = ""
 var _bbcode_regex: RegEx = null
 var _spaces_regex: RegEx = null
 
@@ -221,6 +228,13 @@ func _ready() -> void:
 	
 	input_line.text_submitted.connect(_on_input_submitted)
 	command_dropdown.item_selected.connect(_on_dropdown_command_selected)
+	# Озвучивание пунктов списка при навигации по раскрытому списку (без выполнения команды)
+	command_dropdown.item_focused.connect(_on_dropdown_item_focused)
+	var dropdown_popup: PopupMenu = command_dropdown.get_popup()
+	if dropdown_popup:
+		dropdown_popup.about_to_popup.connect(_on_dropdown_popup_opened)
+		dropdown_popup.popup_hide.connect(_on_dropdown_popup_closed)
+		dropdown_popup.index_pressed.connect(_on_dropdown_popup_index_pressed)
 	
 	_connect_buttons()
 	if gs:
@@ -373,6 +387,8 @@ func _notification(what: int) -> void:
 			am.save_current_settings()
 
 func _process(_delta: float) -> void:
+	if _dropdown_popup_open:
+		_poll_dropdown_popup_focus()
 	if intro_phase == IntroPhase.VIDEO and intro_video and intro_video.is_playing():
 		var pos = intro_video.get_stream_position()
 		if pos >= current_video_cutoff:
@@ -790,12 +806,26 @@ func _input(event: InputEvent) -> void:
 				get_viewport().set_input_as_handled()
 			return
 			
+		# Выпадающий список быстрых команд: стрелки, Home/End и Enter управляют
+		# выбором команды, а не историей ввода. Раскрытый список (PopupMenu)
+		# получает клавиши сам, поэтому здесь обрабатывается только закрытое состояние.
+		if command_dropdown and (command_dropdown.has_focus() or command_dropdown.get_popup().visible):
+			if not command_dropdown.get_popup().visible and _handle_command_dropdown_key(event):
+				var vp = get_viewport()
+				if vp:
+					vp.set_input_as_handled()
+			return
+			
 		if event.keycode == KEY_UP:
 			_navigate_history(-1)
-			get_viewport().set_input_as_handled()
+			var vp_u = get_viewport()
+			if vp_u:
+				vp_u.set_input_as_handled()
 		elif event.keycode == KEY_DOWN:
 			_navigate_history(1)
-			get_viewport().set_input_as_handled()
+			var vp_d = get_viewport()
+			if vp_d:
+				vp_d.set_input_as_handled()
 
 func _setup_game_screen_focus_order() -> void:
 	if input_line and command_dropdown:
@@ -1675,7 +1705,8 @@ func _get_control_accessibility_description(c: Control) -> String:
 		var item_txt = c.get_item_text(idx) if idx >= 0 else ("none" if is_en else "нет")
 		if c == option_language:
 			return ("Language selection dropdown. Current language: %s. Use up and down arrow keys to change." if is_en else "Выбор языка игры, раскрывающийся список. Текущий язык: %s. Изменяйте стрелками вверх и вниз.") % item_txt
-		return ("Quick commands dropdown. Selected: %s. Use up and down arrow keys to navigate, Enter to activate." if is_en else "Выпадающий список быстрых команд. Выбрано: %s. Изменяйте стрелками вверх и вниз, активируйте Enter.") % item_txt
+		var cmd_count = _count_dropdown_commands() if c == command_dropdown else 0
+		return ("Quick commands dropdown. Selected: %s. Commands available: %d. Use up and down arrow keys to navigate, Enter to activate. Space or Alt+Down opens the full list." if is_en else "Выпадающий список быстрых команд. Выбрано: %s. Доступно команд: %d. Изменяйте стрелками вверх и вниз, активируйте Enter. Пробел или Alt+стрелка вниз — раскрыть весь список.") % [item_txt, cmd_count]
 		
 	# 5. Button
 	if c is Button:
@@ -2712,3 +2743,165 @@ func _on_dropdown_command_selected(index: int) -> void:
 		input_line.text = cmd
 		_on_input_submitted(cmd)
 	command_dropdown.selected = 0
+
+# -----------------------------------------------------------------------------
+# Доступность выпадающего списка быстрых команд для NVDA
+# -----------------------------------------------------------------------------
+
+# Клавиши на сфокусированном (закрытом) списке. Возвращает true, если клавиша обработана.
+# Стрелки/Home/End только выбирают и озвучивают пункт; команда выполняется лишь по Enter.
+func _handle_command_dropdown_key(event: InputEventKey) -> bool:
+	if not command_dropdown or command_dropdown.item_count == 0:
+		return false
+	var key = event.keycode
+	
+	# Alt+Стрелка: раскрыть весь список (стандартное поведение комбобокса в Windows)
+	if event.alt_pressed and (key == KEY_DOWN or key == KEY_UP):
+		if not event.echo:
+			command_dropdown.show_popup()
+		return true
+		
+	match key:
+		KEY_DOWN:
+			_browse_command_dropdown(1)
+			return true
+		KEY_UP:
+			_browse_command_dropdown(-1)
+			return true
+		KEY_HOME:
+			_browse_command_dropdown_to(_find_dropdown_enabled_index(0, 1))
+			return true
+		KEY_END:
+			_browse_command_dropdown_to(_find_dropdown_enabled_index(command_dropdown.item_count - 1, -1))
+			return true
+		KEY_ENTER, KEY_KP_ENTER:
+			if event.echo:
+				return true
+			var idx = command_dropdown.selected
+			if idx > 0 and not command_dropdown.is_item_disabled(idx):
+				_on_dropdown_command_selected(idx)
+				return true
+			# Команда ещё не выбрана: стандартное поведение OptionButton (раскрыть список)
+			return false
+	return false
+
+func _find_dropdown_enabled_index(from: int, step: int) -> int:
+	var pop = command_dropdown.get_popup()
+	var i = from
+	while i >= 0 and i < command_dropdown.item_count:
+		var is_sep = pop.is_item_separator(i) if pop else false
+		if not command_dropdown.is_item_disabled(i) and not is_sep:
+			return i
+		i += step
+	return -1
+
+func _browse_command_dropdown(direction: int) -> void:
+	var cur = command_dropdown.selected
+	var target = _find_dropdown_enabled_index(cur + direction, direction)
+	if target == -1:
+		# Граница списка: повторяем текущий пункт и сообщаем об этом
+		var gs = _get_game_state()
+		var is_en = (gs and gs.is_english())
+		var edge = ""
+		if direction > 0:
+			edge = "end of list" if is_en else "конец списка"
+		else:
+			edge = "top of list" if is_en else "начало списка"
+		_announce_dropdown_item(max(cur, 0), true, edge)
+		return
+	_browse_command_dropdown_to(target)
+
+func _browse_command_dropdown_to(index: int) -> void:
+	if index < 0 or index >= command_dropdown.item_count:
+		return
+	if index != command_dropdown.selected:
+		# select() не испускает item_selected, поэтому игровое действие не запускается
+		command_dropdown.select(index)
+	_announce_dropdown_item(index, true)
+
+func _count_dropdown_commands() -> int:
+	var n = 0
+	for i in range(1, command_dropdown.item_count):
+		if not command_dropdown.is_item_disabled(i):
+			n += 1
+	return n
+
+func _announce_dropdown_item(index: int, interrupt: bool = true, suffix: String = "") -> void:
+	if not command_dropdown or index < 0 or index >= command_dropdown.item_count:
+		return
+	_dropdown_last_spoken_index = index
+	var txt = command_dropdown.get_item_text(index)
+	if not suffix.is_empty():
+		txt += ". " + suffix
+	_last_dropdown_announcement = txt
+	if _is_speech_enabled():
+		_speak_text(txt, interrupt)
+
+# Озвучивание пункта в раскрытом списке (без повторов одного и того же пункта)
+func _announce_dropdown_popup_item(index: int) -> void:
+	if index < 0 or index == _dropdown_last_spoken_index:
+		return
+	# Первый пункт после открытия ставим в очередь за фразой «Список открыт»
+	var interrupt = not _dropdown_popup_first_item_pending
+	_dropdown_popup_first_item_pending = false
+	_announce_dropdown_item(index, interrupt)
+
+# Сигнал OptionButton.item_focused: передаёт ID пункта (у нас ID совпадает с индексом)
+func _on_dropdown_item_focused(id: int) -> void:
+	var idx = command_dropdown.get_item_index(id)
+	if idx < 0:
+		idx = id
+	_announce_dropdown_popup_item(idx)
+
+# Страховка: не все пути фокусировки PopupMenu испускают item_focused
+# (например, начальный пункт при открытии или поиск по буквам)
+func _poll_dropdown_popup_focus() -> void:
+	if not command_dropdown:
+		return
+	var pop = command_dropdown.get_popup()
+	if not pop or not pop.visible:
+		return
+	var idx = pop.get_focused_item()
+	if idx >= 0:
+		_announce_dropdown_popup_item(idx)
+
+func _on_dropdown_popup_opened() -> void:
+	_dropdown_popup_open = true
+	_dropdown_popup_first_item_pending = true
+	_dropdown_last_spoken_index = -1
+	_dropdown_pending_activation = -1
+	if not _is_speech_enabled():
+		return
+	var gs = _get_game_state()
+	var is_en = (gs and gs.is_english())
+	var n = _count_dropdown_commands()
+	var msg = ("Command list opened. Commands: %d. Up and down arrows to choose, Enter to run, Escape to close." if is_en else "Список команд открыт. Команд: %d. Стрелки вверх и вниз — выбор, Enter — выполнить, Escape — закрыть.") % n
+	_speak_text(msg, true)
+
+func _on_dropdown_popup_closed() -> void:
+	_dropdown_popup_open = false
+	_dropdown_popup_first_item_pending = false
+	call_deferred("_announce_dropdown_closed")
+
+func _announce_dropdown_closed() -> void:
+	# Если команда выбрана, фокус уже ушёл в строку ввода и озвучивается результат
+	if _dropdown_pending_activation >= 0:
+		return
+	if not command_dropdown or not command_dropdown.has_focus() or not _is_speech_enabled():
+		return
+	var gs = _get_game_state()
+	var is_en = (gs and gs.is_english())
+	var idx = command_dropdown.selected
+	var item_txt = command_dropdown.get_item_text(idx) if idx >= 0 else ""
+	_speak_text(("List closed. Selected: %s." if is_en else "Список закрыт. Выбрано: %s.") % item_txt, true)
+
+# OptionButton не испускает item_selected, если в раскрытом списке подтверждён
+# уже выбранный стрелками пункт. В этом случае выполняем команду сами (один раз).
+func _on_dropdown_popup_index_pressed(index: int) -> void:
+	_dropdown_pending_activation = index
+	call_deferred("_dropdown_popup_activation_fallback", index)
+
+func _dropdown_popup_activation_fallback(index: int) -> void:
+	_dropdown_pending_activation = -1
+	if command_dropdown and index > 0 and command_dropdown.selected == index:
+		_on_dropdown_command_selected(index)

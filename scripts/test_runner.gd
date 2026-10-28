@@ -804,6 +804,131 @@ func _initialize() -> void:
 	assert("флажок" in nvda_desc_chk or "checkbox" in nvda_desc_chk, "check_accessibility description must include role: '%s'" % nvda_desc_chk)
 	var nvda_desc_sld = main_instance._get_control_accessibility_description(main_instance.volume_slider)
 	assert("ползунок" in nvda_desc_sld or "slider" in nvda_desc_sld, "volume_slider description must include role: '%s'" % nvda_desc_sld)
+	
+	# 13. Проверка доступности выпадающего списка быстрых команд для NVDA (CommandDropdown)
+	print("--- TESTING COMMAND DROPDOWN NVDA ACCESSIBILITY ---")
+	var drop = main_instance.command_dropdown
+	assert(drop != null, "CommandDropdown node must exist")
+	
+	# Переключаем язык на RU для проверки русских реплик
+	main_instance._set_ui_language(HobbitGameState.Language.RU)
+	gs.current_room_id = 1
+	main_instance._update_command_dropdown()
+	
+	# Проверка описания списка при фокусе
+	var drop_desc = main_instance._get_control_accessibility_description(drop)
+	assert("Выпадающий список быстрых команд" in drop_desc, "Dropdown description must mention role: '%s'" % drop_desc)
+	assert("Доступно команд:" in drop_desc, "Dropdown description must state available command count: '%s'" % drop_desc)
+	assert("стрелками вверх и вниз" in drop_desc, "Dropdown description must instruct on arrow keys: '%s'" % drop_desc)
+	
+	# Проверка категорий команд в списке:
+	# 1) Направления (Идти: ...)
+	# 2) Предметы в локации (Осмотреть: ... / Взять: ...)
+	# 3) Спутники/Персонажи (Торин...)
+	# 4) Базовые действия (Осмотреться вокруг, Инвентарь, Подождать ход, Взять всё на локации)
+	var all_items_text: Array[String] = []
+	for i in range(drop.item_count):
+		all_items_text.append(drop.get_item_text(i))
+	var all_joined = " | ".join(all_items_text)
+	assert(all_joined.contains("Идти:"), "Dropdown must contain movement direction items: %s" % all_joined)
+	assert(all_joined.contains("Осмотреть:"), "Dropdown must contain examine items: %s" % all_joined)
+	assert(all_joined.contains("Торин"), "Dropdown must contain character commands: %s" % all_joined)
+	assert(all_joined.contains("Подождать ход") or all_joined.contains("Осмотреться вокруг"), "Dropdown must contain base actions: %s" % all_joined)
+	print("[PASS] Dropdown items populated with movement, objects, NPCs and base actions.")
+	
+	# Проверка навигации стрелками:
+	# Начальное состояние: выбран пункт 0 (подсказка 'Выбрать команду...', отключена)
+	drop.selected = 0
+	assert(drop.is_item_disabled(0) == true, "Item 0 ('Выбрать команду...') must be disabled")
+	
+	# Стрелка вниз: переход на пункт 1 (первая доступная команда)
+	var ev_down = InputEventKey.new()
+	ev_down.keycode = KEY_DOWN
+	ev_down.pressed = true
+	var handled_down = main_instance._handle_command_dropdown_key(ev_down)
+	assert(handled_down == true, "Down arrow must be handled by dropdown")
+	assert(drop.selected == 1, "Down arrow must advance selection from 0 to 1")
+	assert(main_instance._last_dropdown_announcement == drop.get_item_text(1), "Announcement must match item 1: '%s'" % main_instance._last_dropdown_announcement)
+	assert(gs.current_room_id == 1, "Navigating dropdown must NOT execute commands or move the player")
+	
+	# Стрелка вниз ещё раз: переход на пункт 2
+	handled_down = main_instance._handle_command_dropdown_key(ev_down)
+	assert(handled_down == true)
+	assert(drop.selected == 2, "Second Down arrow must advance to item 2")
+	assert(main_instance._last_dropdown_announcement == drop.get_item_text(2), "Announcement must match item 2: '%s'" % main_instance._last_dropdown_announcement)
+	
+	# Стрелка вверх: возврат на пункт 1
+	var ev_up = InputEventKey.new()
+	ev_up.keycode = KEY_UP
+	ev_up.pressed = true
+	var handled_up = main_instance._handle_command_dropdown_key(ev_up)
+	assert(handled_up == true, "Up arrow must be handled by dropdown")
+	assert(drop.selected == 1, "Up arrow must move selection back to 1")
+	assert(main_instance._last_dropdown_announcement == drop.get_item_text(1), "Announcement must match item 1")
+	
+	# Стрелка вверх на первом пункте: не должна выбирать пункт 0 ('Выбрать команду...'), сообщает о начале списка
+	handled_up = main_instance._handle_command_dropdown_key(ev_up)
+	assert(handled_up == true)
+	assert(drop.selected == 1, "Selection must stay at 1, never selecting disabled item 0")
+	assert("начало списка" in main_instance._last_dropdown_announcement, "Reaching top must announce edge: '%s'" % main_instance._last_dropdown_announcement)
+	
+	# Клавиша End: перемещение на последний пункт
+	var ev_end = InputEventKey.new()
+	ev_end.keycode = KEY_END
+	ev_end.pressed = true
+	var handled_end = main_instance._handle_command_dropdown_key(ev_end)
+	assert(handled_end == true, "End key must be handled")
+	assert(drop.selected == drop.item_count - 1, "End key must jump to last item")
+	
+	# Клавиша Home: перемещение на первый рабочий пункт (1)
+	var ev_home = InputEventKey.new()
+	ev_home.keycode = KEY_HOME
+	ev_home.pressed = true
+	var handled_home = main_instance._handle_command_dropdown_key(ev_home)
+	assert(handled_home == true, "Home key must be handled")
+	assert(drop.selected == 1, "Home key must jump to first valid item (1)")
+	
+	# Проверка сигнала item_focused (для навигации в раскрытом PopupMenu)
+	main_instance._on_dropdown_item_focused(3)
+	assert(main_instance._dropdown_last_spoken_index == 3, "item_focused must update last spoken index")
+	assert(main_instance._last_dropdown_announcement == drop.get_item_text(3), "item_focused must announce item text: '%s'" % main_instance._last_dropdown_announcement)
+	
+	main_instance.history.clear()
+	main_instance.history.append("команда1")
+	main_instance.history.append("команда2")
+	main_instance.history_index = 2
+	main_instance.mode_select_screen.visible = false
+	main_instance.title_screen.visible = false
+	main_instance.game_started = true
+	drop.get_popup().visible = true
+	main_instance._input(ev_up)
+	assert(main_instance.history_index == 2, "History index must NOT change when dropdown popup is open")
+	drop.get_popup().visible = false
+	assert(main_instance.input_line.text == "", "Input line text must NOT be filled from history when dropdown popup is open")
+	print("[PASS] Dropdown keyboard navigation, speech announcements and input-history isolation verified.")
+	
+	# Проверка выполнения команды по нажатию Enter:
+	# Выбираем пункт 'Подождать ход' (команда 'ждать')
+	var wait_idx = -1
+	for i in range(drop.item_count):
+		var meta = drop.get_item_metadata(i)
+		if meta == "ждать" or meta == "wait":
+			wait_idx = i
+			break
+	assert(wait_idx > 0, "Wait command must be present in dropdown")
+	drop.selected = wait_idx
+	
+	gs.game_over = false
+	gs.game_won = false
+	var turns_before = gs.turn_count
+	var ev_enter = InputEventKey.new()
+	ev_enter.keycode = KEY_ENTER
+	ev_enter.pressed = true
+	var handled_enter = main_instance._handle_command_dropdown_key(ev_enter)
+	assert(handled_enter == true, "Enter key on selected command must be handled")
+	assert(drop.selected == 0, "CommandDropdown selected index must be reset to 0 after execution")
+	assert(gs.turn_count == turns_before + 1, "Turn count must advance by 1 after executing 'ждать'")
+	print("[PASS] Enter key executes selected dropdown command and resets dropdown selection.")
 	print("[PASS] UI Control descriptions for screen readers verified.")
 	
 	print("\n--- ALL TESTS PASSED SUCCESSFULLY! ---")
