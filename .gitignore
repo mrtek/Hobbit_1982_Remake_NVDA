@@ -41,5 +41,7 @@ user/
 savegame.json
 settings.json
 
-# Internal developer logs
+# Internal developer logs and planning
 WORK_LOG.md
+NVDA_ACCESSIBILITY_PLAN.md
+ТЗ_доступность_Hobbit_NVDA.txt
