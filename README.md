@@ -1,16 +1,16 @@
 # 🧙‍♂️ Хоббит / The Hobbit (1982 Remake) — Издание для NVDA и незрячих игроков
 
-[![Download Release](https://img.shields.io/badge/📥_СКАЧАТЬ_ИГРУ_(WINDOWS)-Релиз_v1.0_Beta-brightgreen?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/mrtek/Hobbit_1982_Remake_NVDA/releases/download/v1.0-beta-nvda/The_Hobbit_Remake_NVDA_v1.0_Beta.zip)
+[![Download Release](https://img.shields.io/badge/📥_СКАЧАТЬ_ИГРУ_(WINDOWS)-Релиз_v0.99.01_Beta-brightgreen?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/mrtek/Hobbit_1982_Remake_NVDA/releases/download/v0.99.01-beta-nvda/The_Hobbit_Remake_NVDA_v0.99.01_Beta.zip)
 
 [![Godot Engine](https://img.shields.io/badge/Godot-4.3+-478CBF?logo=godotengine&logoColor=white)](https://godotengine.org)
-[![Version](https://img.shields.io/badge/version-v1.0_Beta_(NVDA)-gold)](#)
+[![Version](https://img.shields.io/badge/version-v0.99.01_Beta_(NVDA)-gold)](#)
 [![Accessibility](https://img.shields.io/badge/Screen_Reader-NVDA_Controller_Client-blueviolet)](#)
 [![Genre](https://img.shields.io/badge/genre-Text--Graphic_Adventure-darkgreen)](#)
 [![Platform](https://img.shields.io/badge/platform-Windows_x64-lightgrey)](#)
 [![Author](https://img.shields.io/badge/Author-Freeonce_(aka_MrTEK)-blue)](#)
 [![AI](https://img.shields.io/badge/AI_Pair_Programming-Gemini_3.8_Flash-8E75C2?logo=google&logoColor=white)](#)
 
-> ### 📦 **[СКАЧАТЬ ГОТОВУЮ ВЕРСИЮ ДЛЯ WINDOWS (ZIP, 350 МБ)](https://github.com/mrtek/Hobbit_1982_Remake_NVDA/releases/download/v1.0-beta-nvda/The_Hobbit_Remake_NVDA_v1.0_Beta.zip)**
+> ### 📦 **[СКАЧАТЬ ГОТОВУЮ ВЕРСИЮ ДЛЯ WINDOWS (ZIP, 350 МБ)](https://github.com/mrtek/Hobbit_1982_Remake_NVDA/releases/download/v0.99.01-beta-nvda/The_Hobbit_Remake_NVDA_v0.99.01_Beta.zip)**
 > *Специальная редакция игры с полной поддержкой программы экранного доступа **NVDA**, нативным мостом к контроллеру, выводом на Брайль, автоматическим приглушением музыки (Audio Ducking) и 100% клавиатурным управлением.*
 
 Современный ремейк культовой текстово-графической адвенчуры **«Хоббит» (The Hobbit)** 1982 года от *Melbourne House* (авторы оригинала: **Philip Mitchell** и **Veronika Megler**), воссозданный на движке **Godot 4.3+**. Игра полностью адаптирована под требования доступности для незрячих и слабовидящих пользователей скринридера **NVDA (NonVisual Desktop Access)**, а также поддерживает два языка интерфейса (Русский и English).
@@ -86,10 +86,10 @@
 ## 🎮 Быстрый старт для игроков
 
 1. Убедитесь, что на вашем ПК запущена программа **NVDA** (или портативная версия).
-2. [Скачайте архив с игрой](https://github.com/mrtek/Hobbit_1982_Remake_NVDA/releases/download/v1.0-beta-nvda/The_Hobbit_Remake_NVDA_v1.0_Beta.zip) и распакуйте его в любую папку.
+2. [Скачайте архив с игрой](https://github.com/mrtek/Hobbit_1982_Remake_NVDA/releases/download/v0.99.01-beta-nvda/The_Hobbit_Remake_NVDA_v0.99.01_Beta.zip) и распакуйте его в любую папку.
 3. Запустите файл `The Hobbit.exe`.
 4. Игра автоматически подключится к NVDA и голосом синтезатора речи объявит:
-   > *«Хоббит: Ремейк, версия 1.0 Beta. Экран выбора режима игры. 1 — Современный, 2 — Ретро VGA, 3 — Классический ZX Spectrum...»*
+   > *«Хоббит: Ремейк, версия 0.99.01 Beta. Экран выбора режима игры. 1 — Современный, 2 — Ретро VGA, 3 — Классический ZX Spectrum...»*
 5. Нажмите цифру `1`, `2` или `3` для начала игры (либо используйте `Tab` и `Enter`).
 6. Нажмите <kbd>F1</kbd> в любой момент для вызова справки по горячим клавишам.
 

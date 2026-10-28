@@ -377,7 +377,7 @@ func _ready() -> void:
 	var is_speech_on = _is_speech_enabled()
 	if is_speech_on:
 		var is_en = (gs and gs.is_english())
-		var intro_text = "The Hobbit: Remake, version 1.0 Beta. Game mode selection screen. 1 — Modern, 2 — Retro VGA, 3 — Classic ZX Spectrum. Press 1, 2 or 3, or use Tab and Enter. Key F1 for shortcuts help." if is_en else "Хоббит: Ремейк, версия 1.0 Beta. Экран выбора режима игры. 1 — Современный, 2 — Ретро VGA, 3 — Классический ZX Spectrum. Нажмите цифры 1, 2 или 3, либо используйте Tab и Enter. Клавиша F1 — справка по клавишам доступности."
+		var intro_text = "The Hobbit: Remake, version 0.99.01 Beta. Game mode selection screen. 1 — Modern, 2 — Retro VGA, 3 — Classic ZX Spectrum. Press 1, 2 or 3, or use Tab and Enter. Key F1 for shortcuts help." if is_en else "Хоббит: Ремейк, версия 0.99.01 Beta. Экран выбора режима игры. 1 — Современный, 2 — Ретро VGA, 3 — Классический ZX Spectrum. Нажмите цифры 1, 2 или 3, либо используйте Tab и Enter. Клавиша F1 — справка по клавишам доступности."
 		_speak_text(intro_text, true)
 
 func _notification(what: int) -> void:
